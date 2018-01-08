@@ -1,34 +1,239 @@
-# History files
-.Rhistory
-.Rapp.history
+#Iporting library()
+library(ggplot2)
 
-# Session Data files
-.RData
+#Importing the dataset
 
-# Example code in package build process
-*-Ex.R
+df<- read.csv("E:/Stuff/R stuff/IBM HR Data.csv",header = TRUE)
 
-# Output files from R CMD build
-/*.tar.gz
+# lets have a look at the top few records
 
-# Output files from R CMD check
-/*.Rcheck/
+head(df)
 
-# RStudio files
-.Rproj.user/
+#lets check if we have any missing records
 
-# produced vignettes
-vignettes/*.html
-vignettes/*.pdf
+apply(is.na(df), 2, sum)
 
-# OAuth2 token, see https://github.com/hadley/httr/releases/tag/v0.3
-.httr-oauth
+# we see that there are no unknown or NULL values in the dataset. Makes sense becassue, this is simulated data.
 
-# knitr and R markdown default cache directories
-/*_cache/
-/cache/
+# lets look at the range and mean of each column in the data
 
-# Temporary files created by R markdown
-*.utf8.md
-*.knit.md
-m lj
+summary(df)
+
+# lets go into visualizations
+
+Viz_Genderwise<-ggplot(df,aes(x=df$Gender))+geom_bar()+theme_bw()+
+  labs(x="Gender",y="Number of employees",title="Genderwise")
+
+Viz_Genderwise
+
+# we see that we have more numbers of males than females in this fictious company.
+
+table(df$Gender)
+
+#lets look at this ratio of employes in different departments
+
+Viz_deptwisegendere<-ggplot(df,aes(x=df$Gender,y=df$Department, fill=df$Gender))+geom_bar()+theme_bw()+
+  facet_wrap(~df$Department)
+
+Viz_deptwisegendere
+
+
+# We understand that male employees are more in all the departments and we see we have more resources in R&D dept
+
+table(df$Department,df$Gender)
+
+#Attrition among employees
+
+
+ggplot(df,aes(x=df$Attrition,fill=df$Attrition))+geom_bar(width = 0.5)+theme_bw()+
+  labs(x="Attrition",title="Attrition piechart for male and female")
+
+# We see that around 16% of the employees are in Attrition.
+
+#Lets have a look at the employees age wise.
+
+
+ggplot(df,fill=df$Gender)+geom_bar(aes(x=df$ï..Age,col=df$Gender,fill=df$Gender),width=0.5)+coord_flip()+theme_bw()+
+  labs(x="Employee count",y="Age",title="Age wise employee count")
+
+# Attrition can be of variety of reasons. Lets see if there is any effect becasue of travel.
+
+ggplot(df)+geom_bar(aes(x=df$BusinessTravel,fill=df$Attrition,stat = "identity"))
+
+attper<-table(df$Attrition,df$BusinessTravel)
+
+# Lets look at this in terms of percentages
+ggplot(df)+geom_bar(aes(x=df$BusinessTravel,fill=df$BusinessTravel,stat = "identity"))+
+  facet_wrap(~df$Attrition)+theme_bw()+labs(x="Business Travel",y="Count",title="Business travel among attritioin Y/N")
+
+#Lets look at the attrition among the department
+
+ggplot(df)+geom_bar(aes(x=df$Department,fill=df$Attrition,stat = "identity"))+
+  theme_bw()+labs(x="Department",y="Count",title="Attrition within department")
+
+##Lets look at the attrition among the education
+
+ggplot(df)+geom_bar(aes(x=df$Education,fill=df$Attrition,stat = "identity",group=df$Attrition))+
+  theme_bw()+labs(x="Education",y="Count",title="Attrition with respect to education")
+
+#Lets look at the attrition among the genders
+
+ggplot(df,aes(x=df$Attrition,fill=df$Gender))+geom_bar(width = 0.5)+theme_bw()+
+  labs(x="Attrition",title="Attrition piechart for male and female")
+
+#Monthly income
+# we see that attrition is more in lower income groups.more in monthly salary less than $10k
+ggplot(df,aes(df$MonthlyIncome,fill=df$Attrition))+geom_histogram()+
+  labs(x="Monthly income",title="Attrition based on income levels")
+
+#Effect of time in company on salary
+ggplot(df,aes(x=df$TotalWorkingYears, y=df$MonthlyIncome))+geom_bar(stat='identity')+
+  labs(x="Monthly income",title="Attrition based on income levels")+facet_grid(~df$Attrition)
+
+
+#It can be reason that their office is far away and people start dis-liking their job.
+
+ggplot(df)+geom_bar(aes(x=df$DistanceFromHome,fill=df$Attrition))
+
+#we see that the disctance form home is not a good factor for creating attrition, all of them have cars these days 
+#they amy not take more than 30m  mins for maximum distance of 30miles.
+
+
+#lets run a basic logistic regression and see what are the variables that matter most in determing attrition
+
+#creatin training and validation model  80, 20
+
+ind<-nrow(df)*0.8
+
+train_df<-df[1:ind, ]
+
+test_df<-df[ind:nrow(df),]
+
+#Random forest to see importance of varibles
+
+library(randomForest)
+
+Ran_For<-randomForest(train_df$Attrition~.,train_df, importance=TRUE,ntree=1000)
+
+varImpPlot(Ran_For)
+
+#Predicting the output
+
+Ran_For_pred<-predict(Ran_For,newdata = test_df)
+
+#lets build a confusion matrix for which we need to install caret library
+
+install.packages("caret")
+library(caret)
+
+confusionMatrix(test_df$Attrition,Ran_For_pred)
+
+
+#To improvise the performance of the model, lets alter the data
+
+#the variable age has several number, lets try to group them.
+
+summary(df$ï..Age)
+
+#min is 18 max is 60, hence creating 3 group.  18 to 30 young,  30 to 45 mid  45 and more old
+
+install.packages("dplyr")
+library(dplyr)
+
+df$age_grp<-case_when( df$ï..Age<=30~"Young",
+                       df$ï..Age>30& df$ï..Age<=45 ~ "Mid",
+                       df$ï..Age>45 ~ "Old")
+
+# awe need maje this as factor, otherwise in character form, random forest cannot run.
+
+df$age_grp<-as.factor(df$age_grp)
+
+ggplot(df)+geom_bar(aes(x=df$age_grp,fill=df$Attrition))+
+  labs(x="Age group",  y="Attrition count with split", title="Attrion in age groups")
+
+
+table(df$age_grp,df$Attrition)
+
+#we see that relatively the attrition in old group is low, can be due to the reason they 
+#are afraid they may not get new jobs becasue the younger talents are not as expensive as the are, 
+#to support the above hypothesis, we can see hat attrition among young people are high(40%).!!
+
+
+#Removing few variables which are no of use.
+
+unique(df$Over18)
+
+#all rows have Y. so lets get ris of this variable.
+
+df$Over18<-NULL
+
+str(df)
+
+
+ggplot(df)+geom_bar(aes(x=df$YearsAtCompany,fill=df$Attrition))
+# It is interesting to find that the attrition among employees who are just an year old to the company 
+#and as time goes, it decreases towards 0
+
+
+
+
+
+
+#creatin again training and validation model  80, 20
+
+ind<-nrow(df)*0.8
+
+train_df1<-df[1:ind, ]
+
+test_df1<-df[ind:nrow(df),]
+
+str(train_df1$age_grp)
+
+#checking for imporovements in RF model.
+
+suppressWarnings(Ran_For1<-randomForest(train_df1$Attrition~.,train_df1, importance=TRUE,ntree=1000))
+varImpPlot(Ran_For1)
+Ran_For_pred1<-predict(Ran_For1,newdata = test_df1)
+confusionMatrix(test_df1$Attrition,Ran_For_pred1)
+
+
+# We dont see much improvement, lets try simple decission tree.
+
+install.packages(party)
+library(party)
+
+dec_tree<-ctree(train_df1$Attrition~., data=train_df1)
+plot(dec_tree)
+
+
+
+#We see that the data is un-balanced, meaning the Attrition= Yes records are less.
+#we will try oversamplling. i.e repeating the minority records.
+#Unlike under sampling this method leads to no information loss.
+
+df_os<-rbind(df,df[df$Attrition=='Yes',])  
+
+
+ind<-nrow(df_os)*0.8
+
+train_df_os<-df_os[1:ind, ]
+
+test_df_os<-df_os[ind:nrow(df_os),]
+
+str(train_df_os$age_grp)
+
+#checking for imporovements in RF model.
+
+suppressWarnings(Ran_For_os<-randomForest(train_df_os$Attrition~.,train_df_os, importance=TRUE,ntree=1000))
+varImpPlot(Ran_For_os)
+Ran_For_pred_os<-predict(Ran_For_os,newdata = test_df_os)
+confusionMatrix(test_df_os$Attrition,Ran_For_pred_os)
+
+
+# weesee that accuracy has increased
+
+
+# Logistic regression
+
+logi_reg<-glm(train_df1$Attrition~.,data=train_df1)
+
